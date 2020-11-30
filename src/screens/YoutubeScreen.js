@@ -17,11 +17,18 @@ import {
   useResponsiveScreenHeight,
   responsiveFontSize,
 } from 'react-native-responsive-dimensions';
-import {IconButton, Searchbar, Card, Button, Title} from 'react-native-paper';
+import {
+  IconButton,
+  Searchbar,
+  ProgressBar,
+  Button,
+  Title,
+} from 'react-native-paper';
 import BottomBar from '../components/BottomBar';
 import axios from 'axios';
 import LottieView from 'lottie-react-native';
 import ActionSheet from 'react-native-actions-sheet';
+import Video from 'react-native-video';
 
 export default function YoutubeScreen({navigation}) {
   const [loading, setLoading] = useState(false);
@@ -30,6 +37,14 @@ export default function YoutubeScreen({navigation}) {
   const [thumbnails, setThumbnails] = useState();
   const onChangeSearch = (query) => setSearchQuery(query);
   const actionSheetRef = useRef(null);
+  const player = useRef(null);
+  const [audioUrl, setAudioUrl] = useState('');
+  const [muted, setMuted] = useState(false);
+  const [duration, setDuration] = useState(0.0);
+  const [paused, setPaused] = useState(true);
+  const [currentTime, setCurrentTime] = useState(1);
+  const [rate, setRate] = useState();
+  // const [] = useState();
 
   const Search = () => {
     setLoading(true);
@@ -45,16 +60,31 @@ export default function YoutubeScreen({navigation}) {
         console.log(err);
       });
   };
-  console.log(thumbnails);
+
+  const searchVideoWithId = (id) => {
+    axios({
+      method: 'get',
+      url: `https://second.cadence.moe/api/v1/videos/${id}`,
+    })
+      .then((res) => {
+        console.log(res.data);
+        setAudioUrl(res.data.adaptiveFormats[2].url);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
 
   const renderItem = (i) => {
-    console.log(i, 'i');
+    // console.log(i, 'i');
     return (
       <TouchableOpacity
+        key={i.item.video}
         style={styles.card}
         onPress={() => {
           actionSheetRef.current?.setModalVisible();
           setThumbnails(i);
+          searchVideoWithId(i.item.videoId);
         }}>
         <Image
           resizeMode="contain"
@@ -86,6 +116,19 @@ export default function YoutubeScreen({navigation}) {
     );
   };
   let minData = data?.slice(0, 20);
+
+  const onEnd = () => {
+    setPaused(true);
+  };
+
+  const onLoad = () => {
+    setPaused(false);
+  };
+  const onProgress = (e) => {
+    setDuration(e.playableDuration);
+    setCurrentTime(e.currentTime / e.playableDuration);
+    console.log(e, 'h');
+  };
 
   return (
     <>
@@ -167,6 +210,39 @@ export default function YoutubeScreen({navigation}) {
                   }}>
                   {thumbnails?.item.title}
                 </Text>
+                <Video
+                  source={{uri: audioUrl}} // Can be a URL or a local file.
+                  controls={true}
+                  audioOnly={true}
+                  ref={player} // Store reference
+                  style={styles.backgroundVideo}
+                  rate={rate}
+                  paused={paused}
+                  muted={muted}
+                  onEnd={onEnd}
+                  onProgress={(e) => onProgress(e)}
+                  onLoad={onLoad}
+                  progressUpdateInterval={1000}
+                  playInBackground={true}
+                />
+                <IconButton
+                  icon={paused ? 'play ' : 'pause-circle'}
+                  color={'white'}
+                  size={35}
+                  style={{alignSelf: 'center'}}
+                  onPress={() => {
+                    setPaused(!paused);
+                  }}
+                />
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-evenly',
+                  }}>
+                  <Text style={{color: 'white'}}>0</Text>
+                  <ProgressBar progress={currentTime} color={'white'} />
+                  <Text style={{color: 'white'}}> {duration}</Text>
+                </View>
               </View>
             </View>
           </ImageBackground>
@@ -216,6 +292,10 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
     borderRadius: 20,
     marginTop: 30,
+  },
+  backgroundVideo: {
+    height: 10,
+    width: 10,
   },
   bottomBar: {
     flexDirection: 'row',

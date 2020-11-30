@@ -1,51 +1,149 @@
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
+import PropTypes from 'prop-types';
+import TrackPlayer, {
+  useTrackPlayerProgress,
+  usePlaybackState,
+  useTrackPlayerEvents,
+} from 'react-native-track-player';
 import {
-  SafeAreaView,
-  Text,
-  View,
+  Image,
   StyleSheet,
-  ImageBackground,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewPropTypes,
 } from 'react-native';
-import {
-  responsiveScreenHeight,
-  responsiveScreenWidth,
-  useResponsiveScreenWidth,
-  useResponsiveScreenHeight,
-  responsiveFontSize,
-} from 'react-native-responsive-dimensions';
-import {IconButton, Searchbar} from 'react-native-paper';
-import BottomBar from '../components/BottomBar';
+import {IconButton} from 'react-native-paper';
 
-export default function Player({navigation}) {
+function ProgressBar() {
+  const progress = useTrackPlayerProgress();
+
   return (
-    <>
-      <SafeAreaView style={{backgroundColor: '#808080'}} />
-      <SafeAreaView style={{flex: 1, backgroundColor: '#404040'}}>
-        <IconButton
-          icon="arrow-left-circle"
-          color={'white'}
-          size={35}
-          onPress={() => navigation.goBack()}
-        />
-        <BottomBar
-          onSearchPress={() => navigation.navigate('Search')}
-          onHomePress={() => navigation.navigate('Home')}
-          onYoutubePress={() => navigation.navigate('Youtube')}
-          onUserPress={() => navigation.navigate('User')}
-        />
-      </SafeAreaView>
-    </>
+    <View style={styles.progress}>
+      <View style={{flex: progress.position, backgroundColor: 'white'}} />
+      <View
+        style={{
+          flex: progress.duration - progress.position,
+          backgroundColor: 'grey',
+        }}
+      />
+    </View>
   );
 }
 
+export default function Player(props) {
+  const playbackState = usePlaybackState();
+  const [trackTitle, setTrackTitle] = useState('');
+  const [trackArtwork, setTrackArtwork] = useState();
+  const [trackArtist, setTrackArtist] = useState('');
+  useTrackPlayerEvents(['playback-track-changed'], async (event) => {
+    if (event.type === TrackPlayer.TrackPlayerEvents.PLAYBACK_TRACK_CHANGED) {
+      const track = await TrackPlayer.getTrack(event.nextTrack);
+      const {title, artist, artwork} = track || {};
+      setTrackTitle(title);
+      setTrackArtist(artist);
+      setTrackArtwork(artwork);
+    }
+  });
+
+  const {style, onNext, onPrevious, onTogglePlayback} = props;
+
+  var middleButtonText = 'Play';
+
+  if (
+    playbackState === TrackPlayer.STATE_PLAYING ||
+    playbackState === TrackPlayer.STATE_BUFFERING
+  ) {
+    middleButtonText = 'Pause';
+  }
+
+  return (
+    <View style={[styles.card, style]}>
+      <Image
+        style={styles.cover}
+        source={require('../assets/images/guitar.jpg')}
+      />
+      <ProgressBar />
+      <Text style={styles.title}>{trackTitle}</Text>
+      <Text style={styles.artist}>{trackArtist}</Text>
+      <View style={styles.controls}>
+        <IconButton
+          icon="skip-previous-circle"
+          color={'white'}
+          size={35}
+          onPress={onPrevious}
+        />
+        <IconButton
+          icon={onTogglePlayback ? 'play-circle' : 'pause'}
+          color={'white'}
+          size={35}
+          onPress={onTogglePlayback}
+        />
+        <IconButton
+          icon="skip-next-circle"
+          color={'white'}
+          size={35}
+          onPress={onNext}
+        />
+      </View>
+    </View>
+  );
+}
+
+Player.propTypes = {
+  style: ViewPropTypes.style,
+  onNext: PropTypes.func.isRequired,
+  onPrevious: PropTypes.func.isRequired,
+  onTogglePlayback: PropTypes.func.isRequired,
+};
+
+Player.defaultProps = {
+  style: {},
+};
+
 const styles = StyleSheet.create({
-  backBtn: {},
-  bottomBar: {
+  card: {
+    width: '100%',
+    height: '100%',
+    elevation: 1,
+    borderRadius: 4,
+    shadowRadius: 2,
+    shadowOpacity: 0.1,
+    alignItems: 'center',
+    shadowColor: 'black',
+    backgroundColor: 'red',
+    justifyContent: 'center',
+    shadowOffset: {width: 0, height: 1},
+  },
+  cover: {
+    width: '70%',
+    height: '30%',
+    marginTop: 50,
+    backgroundColor: 'yellow',
+  },
+  progress: {
+    height: 2,
+    width: '70%',
+    marginTop: 20,
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    width: responsiveScreenWidth(100),
-    backgroundColor: 'black',
-    position: 'absolute',
-    bottom: 0,
+  },
+  title: {
+    marginTop: 10,
+    color: 'white',
+  },
+  artist: {
+    fontWeight: 'bold',
+  },
+  controls: {
+    marginVertical: 40,
+    flexDirection: 'row',
+  },
+  controlButtonContainer: {
+    flex: 1,
+  },
+  controlButtonText: {
+    fontSize: 24,
+    textAlign: 'center',
+    color: 'white',
   },
 });

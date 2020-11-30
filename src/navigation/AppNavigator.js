@@ -9,7 +9,7 @@ import {createStackNavigator} from '@react-navigation/stack';
 import HomeScreen from '../screens/HomeScreen';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import SearchScreen from '../screens/SearchScreen';
-import {Button, IconButton} from 'react-native-paper';
+import {ProgressBar, IconButton} from 'react-native-paper';
 import SettingScreen from '../screens/SettingScreen';
 import Sidebar from '../components/Sidebar';
 import YoutubeScreen from '../screens/YoutubeScreen';
@@ -22,7 +22,7 @@ export default function AppNavigator({navigation}) {
   return (
     <NavigationContainer>
       <Drawer.Navigator drawerContent={(props) => <Sidebar {...props} />}>
-        <Drawer.Screen name="Welcome" component={WelcomeScreen} />
+        {/* <Drawer.Screen name="Welcome" component={WelcomeScreen} /> */}
         <Drawer.Screen name="Home" component={HomeScreen} />
         <Drawer.Screen name="Search" component={SearchScreen} />
         <Drawer.Screen name="Youtube" component={YoutubeScreen} />
