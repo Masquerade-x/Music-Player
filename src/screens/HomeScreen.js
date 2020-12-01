@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ImageBackground,
   DeviceEventEmitter,
+  PermissionsAndroid,
 } from 'react-native';
 import {
   responsiveScreenHeight,
@@ -19,18 +20,63 @@ import BottomBar from '../components/BottomBar';
 import MusicFiles from 'react-native-get-music-files';
 import TrackPlayer, {usePlaybackState} from 'react-native-track-player';
 import Player from './Player';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import LottieView from 'lottie-react-native';
 
-export default function HomeScreen({navigation}) {
+export default function HomeScreen({navigation, route}) {
   const playbackState = usePlaybackState();
+  const [loading, setLoading] = useState(false);
   const [songs, setSongs] = useState();
+
+  const trackId = route.params?.currentTrack;
 
   useEffect(() => {
     setup();
+    checkPermission();
   }, []);
 
-  useEffect(() => {
-    getSongData();
-  }, []);
+  async function getData() {
+    try {
+      const jsonValue = await AsyncStorage.getItem('@songs');
+      let jsonData = jsonValue != null ? JSON.parse(jsonValue) : null;
+      console.log(jsonData);
+      if (jsonData === null) {
+        setLoading(true);
+        getSongData();
+      } else {
+        setSongs(jsonData);
+        songData(jsonData);
+      }
+    } catch (e) {
+      // error reading value
+    }
+  }
+
+  async function checkPermission() {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        {
+          title: 'Storage Access',
+          message:
+            'Music player needs access to your storage ' +
+            'so you can view the songs.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log('You can use the storage');
+        getData();
+      } else {
+        console.log('storage permission denied');
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
   function getSongData() {
     MusicFiles.getAll({
       id: true,
@@ -53,8 +99,8 @@ export default function HomeScreen({navigation}) {
       ],
     });
     DeviceEventEmitter.addListener('onBatchReceived', (params) => {
-      console.log(params.batch);
       getSongs(params.batch);
+      setLoading(false);
     });
   }
 
@@ -65,11 +111,22 @@ export default function HomeScreen({navigation}) {
         url: i.path,
         title: i.title,
         duration: i.duration,
+        filename: i.fileName,
       };
       return x;
     });
     setSongs(playListData);
+    songData(playListData);
   }
+
+  const songData = async (songs) => {
+    try {
+      const jsonValue = JSON.stringify(songs);
+      await AsyncStorage.setItem('@songs', jsonValue);
+    } catch (e) {
+      // saving error
+    }
+  };
 
   async function setup() {
     await TrackPlayer.setupPlayer({});
@@ -79,8 +136,10 @@ export default function HomeScreen({navigation}) {
         TrackPlayer.CAPABILITY_PLAY,
         TrackPlayer.CAPABILITY_PAUSE,
         TrackPlayer.CAPABILITY_SKIP_TO_NEXT,
+        TrackPlayer.CAPABILITY_SEEK_TO,
         TrackPlayer.CAPABILITY_SKIP_TO_PREVIOUS,
         TrackPlayer.CAPABILITY_STOP,
+        TrackPlayer.CAPABILITY_PLAY_FROM_ID,
       ],
       compactCapabilities: [
         TrackPlayer.CAPABILITY_PLAY,
@@ -90,7 +149,13 @@ export default function HomeScreen({navigation}) {
   }
 
   async function togglePlayback() {
+    let trackObject = await TrackPlayer.getTrack(trackId);
     const currentTrack = await TrackPlayer.getCurrentTrack();
+    if (trackId !== undefined) {
+      await TrackPlayer.reset();
+      await TrackPlayer.add(trackId);
+      await TrackPlayer.play();
+    }
     if (currentTrack == null) {
       await TrackPlayer.reset();
       await TrackPlayer.add(songs);
@@ -101,20 +166,6 @@ export default function HomeScreen({navigation}) {
       } else {
         await TrackPlayer.pause();
       }
-    }
-  }
-
-  function getStateName(state) {
-    switch (state) {
-      case TrackPlayer.STATE_NONE:
-        return 'None';
-      case TrackPlayer.STATE_PLAYING:
-      case TrackPlayer.STATE_PAUSED:
-        return 'Paused';
-      case TrackPlayer.STATE_STOPPED:
-        return 'Stopped';
-      case TrackPlayer.STATE_BUFFERING:
-        return 'Buffering';
     }
   }
 
@@ -134,22 +185,34 @@ export default function HomeScreen({navigation}) {
     <>
       <SafeAreaView style={{backgroundColor: '#808080'}} />
       <SafeAreaView style={{flex: 1, backgroundColor: '#404040'}}>
-        <IconButton
-          icon="menu"
-          style={styles.icon}
-          color={'white'}
-          size={35}
-          onPress={() => navigation.openDrawer()}
-        />
         <ImageBackground
           style={styles.img}
           source={require('../assets/images/guitar.jpg')}>
-          <Player
-            onNext={skipToNext}
-            style={styles.player}
-            onPrevious={skipToPrevious}
-            onTogglePlayback={togglePlayback}
-          />
+          {loading ? (
+            <View
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+              <LottieView
+                style={{
+                  height: responsiveScreenHeight(25),
+                  width: responsiveScreenWidth(25),
+                }}
+                source={require('../assets/lottieFiles/rs.json')}
+                autoPlay
+                duration={2000}
+              />
+            </View>
+          ) : (
+            <Player
+              onNext={skipToNext}
+              style={styles.player}
+              onPrevious={skipToPrevious}
+              onTogglePlayback={togglePlayback}
+            />
+          )}
         </ImageBackground>
         <BottomBar
           onSearchPress={() => navigation.navigate('Search')}

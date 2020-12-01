@@ -19,90 +19,48 @@ import {
 import Player from './Player';
 import BottomBar from '../components/BottomBar';
 import {Searchbar, ProgressBar} from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {FlatList, TouchableOpacity} from 'react-native-gesture-handler';
 
 export default function PlaylistScreen({navigation}) {
   const playbackState = usePlaybackState();
   const [songs, setSongs] = useState();
+  const [searchedSongs, setSearchedSongs] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const onChangeSearch = (query) => setSearchQuery(query);
 
   useEffect(() => {
-    setup();
+    getData();
   }, []);
 
-  useEffect(() => {
-    MusicFiles.getAll({
-      id: true,
-      blured: false,
-      artist: true,
-      duration: true, //default : true
-      cover: true, //default : true,
-      title: true,
-      batchNumber: 5, //get 5 songs per batch
-      minimumSongDuration: 10000, //in miliseconds,
-      fields: [
-        'title',
-        'artwork',
-        'duration',
-        'artist',
-        'genre',
-        'lyrics',
-        'albumTitle',
-      ],
-    });
-
-    DeviceEventEmitter.addListener('onBatchReceived', (params) => {
-      console.log(params.batch);
-    });
-  }, []);
-
-  function getSongs(data) {
-    const playListData = data?.map((i) => {
-      let x = {
-        id: i.id,
-        url: i.path,
-        title: i.title,
-        duration: i.duration,
-      };
-      return x;
-    });
-    console.log(playListData);
-    setSongs(playListData);
-  }
-
-  async function setup() {
-    await TrackPlayer.setupPlayer({});
-    await TrackPlayer.updateOptions({
-      stopWithApp: true,
-      capabilities: [
-        TrackPlayer.CAPABILITY_PLAY,
-        TrackPlayer.CAPABILITY_PAUSE,
-        TrackPlayer.CAPABILITY_SKIP_TO_NEXT,
-        TrackPlayer.CAPABILITY_SKIP_TO_PREVIOUS,
-        TrackPlayer.CAPABILITY_STOP,
-      ],
-      compactCapabilities: [
-        TrackPlayer.CAPABILITY_PLAY,
-        TrackPlayer.CAPABILITY_PAUSE,
-      ],
-    });
-  }
-  console.log(songs);
-
-  async function togglePlayback() {
-    const currentTrack = await TrackPlayer.getCurrentTrack();
-    if (currentTrack == null) {
-      await TrackPlayer.reset();
-      await TrackPlayer.add(songs);
-      await TrackPlayer.play();
-    } else {
-      if (playbackState === TrackPlayer.STATE_PAUSED) {
-        await TrackPlayer.play();
-      } else {
-        await TrackPlayer.pause();
-      }
+  async function getData() {
+    try {
+      const jsonValue = await AsyncStorage.getItem('@songs');
+      let jsonData = jsonValue != null ? JSON.parse(jsonValue) : null;
+      console.log(jsonData);
+      setSongs(jsonData);
+    } catch (e) {
+      // error reading value
     }
   }
+
+  const renderItem = (i) => {
+    return (
+      <TouchableOpacity
+        key={i.item.id}
+        style={styles.card}
+        onPress={() => navigation.navigate('Home', {currentTrack: i.item})}>
+        <Text style={{color: 'white', fontSize: 18}}>{i.item.filename}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const searchSong = () => {
+    let recievedSong = songs.filter(
+      (i) => i.filename.toLowerCase().indexOf(searchQuery.toLowerCase()) > -1,
+    );
+    setSearchedSongs(recievedSong);
+  };
 
   return (
     <>
@@ -111,31 +69,43 @@ export default function PlaylistScreen({navigation}) {
         <ImageBackground
           style={styles.img}
           source={require('../assets/images/guitar.jpg')}>
-          {/* <Searchbar
-            iconColor="white"
-            // onSubmitEditing={}
+          <View
             style={{
-              elevation: 1,
-              backgroundColor: '#1C1C1C',
-              alignSelf: 'center',
-              width: '90%',
-              borderRadius: 50,
-              marginTop: 20,
-            }}
-            color="white"
-            placeholder="Search"
-            placeholderTextColor="white"
-            onChangeText={onChangeSearch}
-            value={searchQuery}
-          /> */}
-          {/* <Player
-            onNext={skipToNext}
-            style={styles.player}
-            onPrevious={skipToPrevious}
-            onTogglePlayback={togglePlayback}
-          /> */}
-
-          {/* <Text style={styles.state}>{getStateName(playbackState)}</Text> */}
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              width: '100%',
+              flex: 1,
+            }}>
+            <Searchbar
+              iconColor="white"
+              onSubmitEditing={searchSong}
+              style={{
+                elevation: 1,
+                backgroundColor: '#1C1C1C',
+                alignSelf: 'center',
+                width: '90%',
+                borderRadius: 50,
+                marginTop: 20,
+              }}
+              color="white"
+              placeholder="Search"
+              placeholderTextColor="white"
+              onChangeText={onChangeSearch}
+              value={searchQuery}
+            />
+            <FlatList
+              data={
+                searchedSongs === '' || searchQuery === ''
+                  ? songs
+                  : searchedSongs
+              }
+              renderItem={renderItem}
+              contentContainerStyle={{
+                paddingBottom: 150,
+                paddingHorizontal: 10,
+              }}
+              keyExtractor={(item) => item.id}
+            />
+          </View>
         </ImageBackground>
         <BottomBar
           onSearchPress={() => navigation.navigate('Search')}
@@ -146,32 +116,6 @@ export default function PlaylistScreen({navigation}) {
       </SafeAreaView>
     </>
   );
-}
-
-function getStateName(state) {
-  switch (state) {
-    case TrackPlayer.STATE_NONE:
-      return 'None';
-    case TrackPlayer.STATE_PLAYING:
-    case TrackPlayer.STATE_PAUSED:
-      return 'Paused';
-    case TrackPlayer.STATE_STOPPED:
-      return 'Stopped';
-    case TrackPlayer.STATE_BUFFERING:
-      return 'Buffering';
-  }
-}
-
-async function skipToNext() {
-  try {
-    await TrackPlayer.skipToNext();
-  } catch (_) {}
-}
-
-async function skipToPrevious() {
-  try {
-    await TrackPlayer.skipToPrevious();
-  } catch (_) {}
 }
 
 const styles = StyleSheet.create({
@@ -190,15 +134,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    flex: 1,
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    width: '50%',
-    flexDirection: 'row',
-    height: 250,
+    marginVertical: 10,
+    width: '95%',
+    height: 50,
+    justifyContent: 'center',
   },
   container: {
     position: 'absolute',

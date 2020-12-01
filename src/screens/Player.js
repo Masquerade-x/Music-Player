@@ -48,13 +48,13 @@ export default function Player(props) {
 
   const {style, onNext, onPrevious, onTogglePlayback} = props;
 
-  var middleButtonText = 'Play';
+  var middleButtonText = 'play-circle';
 
   if (
     playbackState === TrackPlayer.STATE_PLAYING ||
     playbackState === TrackPlayer.STATE_BUFFERING
   ) {
-    middleButtonText = 'Pause';
+    middleButtonText = 'pause';
   }
 
   return (
@@ -74,7 +74,7 @@ export default function Player(props) {
           onPress={onPrevious}
         />
         <IconButton
-          icon={onTogglePlayback ? 'play-circle' : 'pause'}
+          icon={middleButtonText}
           color={'white'}
           size={35}
           onPress={onTogglePlayback}
@@ -118,8 +118,8 @@ const styles = StyleSheet.create({
   cover: {
     width: '70%',
     height: '30%',
-    marginTop: 50,
     backgroundColor: 'yellow',
+    borderRadius: 30,
   },
   progress: {
     height: 2,

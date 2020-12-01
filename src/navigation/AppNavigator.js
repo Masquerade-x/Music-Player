@@ -22,7 +22,7 @@ export default function AppNavigator({navigation}) {
   return (
     <NavigationContainer>
       <Drawer.Navigator drawerContent={(props) => <Sidebar {...props} />}>
-        {/* <Drawer.Screen name="Welcome" component={WelcomeScreen} /> */}
+        <Drawer.Screen name="Welcome" component={WelcomeScreen} />
         <Drawer.Screen name="Home" component={HomeScreen} />
         <Drawer.Screen name="Search" component={SearchScreen} />
         <Drawer.Screen name="Youtube" component={YoutubeScreen} />
